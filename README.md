@@ -1,5 +1,13 @@
 # Prometheus Slurm Exporter
 
+## Fork info
+
+This is a fork from [prometheus-slurm-exporter](https://github.com/vpenso/prometheus-slurm-exporter)
+that has not been updated since 2022-03-29. This fork has been updated to work with slurm v23. In
+addition, reporting by gpu type was added. Other changes might be added in the future.
+
+## Description
+
 Prometheus collector and exporter for metrics extracted from the [Slurm](https://slurm.schedmd.com/overview.html) resource scheduling system.
 
 ## Exported Metrics

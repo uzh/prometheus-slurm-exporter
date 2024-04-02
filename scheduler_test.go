@@ -32,5 +32,10 @@ func TestSchedulerMetrics(t *testing.T) {
 }
 
 func TestSchedulerGetMetrics(t *testing.T) {
-	t.Logf("%+v", SchedulerGetMetrics())
+	utility := "sdiag"
+	if ! UtilityAvailable(utility) {
+		t.Logf("%s is not available. Skipping...", utility)
+	} else {
+		t.Logf("%+v", SchedulerGetMetrics())
+	}
 }

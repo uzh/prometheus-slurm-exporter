@@ -32,5 +32,10 @@ func TestCPUsMetrics(t *testing.T) {
 }
 
 func TestCPUssGetMetrics(t *testing.T) {
-	t.Logf("%+v", CPUsGetMetrics())
+	utility := "sinfo"
+	if ! UtilityAvailable(utility) {
+		t.Logf("%s is not available. Skipping...", utility)
+	} else {
+		t.Logf("%+v", CPUsGetMetrics())
+	}
 }

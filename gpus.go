@@ -17,91 +17,70 @@ package main
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
-	"io/ioutil"
-	"os/exec"
-	"strings"
+	"log"
+	"regexp"
 	"strconv"
+	"strings"
 )
 
 type GPUsMetrics struct {
-	alloc       float64
-	idle        float64
-	total       float64
+	alloc       uint64
+	idle        uint64
+	total       uint64
 	utilization float64
 }
 
 func GPUsGetMetrics() *GPUsMetrics {
-	return ParseGPUsMetrics()
-}
-
-func ParseAllocatedGPUs() float64 {
-	var num_gpus = 0.0
-
-	args := []string{"-a", "-X", "--format=Allocgres", "--state=RUNNING", "--noheader", "--parsable2"}
-	output := string(Execute("sacct", args))
-	if len(output) > 0 {
-		for _, line := range strings.Split(output, "\n") {
-			if len(line) > 0 {
-				line = strings.Trim(line, "\"")
-				descriptor := strings.TrimPrefix(line, "gpu:")
-				job_gpus, _ := strconv.ParseFloat(descriptor, 64)
-				num_gpus += job_gpus
-			}
-		}
-	}
-
-	return num_gpus
-}
-
-func ParseTotalGPUs() float64 {
-	var num_gpus = 0.0
-
-	args := []string{"-h", "-o \"%n %G\""}
+	args := []string{"-a", "-h", "--Format='Nodes: ,Gres: ,GresUsed:'", "--state=idle,allocated"}
 	output := string(Execute("sinfo", args))
-	if len(output) > 0 {
-		for _, line := range strings.Split(output, "\n") {
-			if len(line) > 0 {
-				line = strings.Trim(line, "\"")
-				descriptor := strings.Fields(line)[1]
-				descriptor = strings.TrimPrefix(descriptor, "gpu:")
-				descriptor = strings.Split(descriptor, "(")[0]
-				node_gpus, _ :=  strconv.ParseFloat(descriptor, 64)
-				num_gpus += node_gpus
-			}
-		}
-	}
-
-	return num_gpus
+	return ParseGPUsMetrics(output)
 }
 
-func ParseGPUsMetrics() *GPUsMetrics {
+func ParseGPUsMetrics(input string) *GPUsMetrics {
 	var gm GPUsMetrics
-	total_gpus := ParseTotalGPUs()
-	allocated_gpus := ParseAllocatedGPUs()
+	var total_gpus = uint64(0)
+	var allocated_gpus = uint64(0)
+	var ptrn_gpu = regexp.MustCompile(`^gpu:[^:]+:(\d+).*$`)
+	var ptrn_gpu_used = regexp.MustCompile(`^gpu:[^:]+:(\d+).*$`)
+
+	if len(input) > 0 {
+		for _, row := range strings.Split(input, "\n") {
+			tokens := strings.Split(row, " ")
+			if len(tokens) < 3 {
+				continue
+			}
+			nodes, err := strconv.ParseUint(tokens[0], 10, 32)
+			if err != nil {
+				log.Printf("Invalid number of nodes in '%s'.\n", row)
+				continue
+			}
+			s_gpu, s_gpu_used := tokens[1], tokens[2]
+			row_gpus, row_gpus_used := uint64(0), uint64(0)
+			m_gpu := ptrn_gpu.FindStringSubmatch(s_gpu)
+			if m_gpu != nil {
+				// It cannot fail because the regexp only matches digits
+				row_gpus, _ = strconv.ParseUint(m_gpu[1], 10, 32)
+			}
+			m_gpu_used := ptrn_gpu_used.FindStringSubmatch(s_gpu_used)
+			if m_gpu_used != nil {
+				// It cannot fail because the regexp only matches digits
+				row_gpus_used, _ = strconv.ParseUint(m_gpu_used[1], 10, 32)
+			}
+			total_gpus += row_gpus * nodes
+			allocated_gpus += row_gpus_used * nodes
+		}
+	}
+	utilization := 0.0
+	if total_gpus > 0 {
+		utilization = float64(allocated_gpus) / float64(total_gpus)
+	}
 	gm.alloc = allocated_gpus
 	gm.idle = total_gpus - allocated_gpus
 	gm.total = total_gpus
-	gm.utilization = allocated_gpus / total_gpus
+	gm.utilization = utilization
 	return &gm
 }
 
-// Execute the sinfo command and return its output
-func Execute(command string, arguments []string) []byte {
-	cmd := exec.Command(command, arguments...)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
-	}
-	out, _ := ioutil.ReadAll(stdout)
-	if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
-	}
-	return out
-}
 
 /*
  * Implement the Prometheus Collector interface and feed the
@@ -134,8 +113,8 @@ func (cc *GPUsCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 func (cc *GPUsCollector) Collect(ch chan<- prometheus.Metric) {
 	cm := GPUsGetMetrics()
-	ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, cm.alloc)
-	ch <- prometheus.MustNewConstMetric(cc.idle, prometheus.GaugeValue, cm.idle)
-	ch <- prometheus.MustNewConstMetric(cc.total, prometheus.GaugeValue, cm.total)
+	ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, float64(cm.alloc))
+	ch <- prometheus.MustNewConstMetric(cc.idle, prometheus.GaugeValue, float64(cm.idle))
+	ch <- prometheus.MustNewConstMetric(cc.total, prometheus.GaugeValue, float64(cm.total))
 	ch <- prometheus.MustNewConstMetric(cc.utilization, prometheus.GaugeValue, cm.utilization)
 }

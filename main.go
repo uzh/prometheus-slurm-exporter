@@ -19,7 +19,7 @@ import (
 	"flag"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/common/log"
+	"log"
 	"net/http"
 )
 
@@ -52,12 +52,13 @@ func main() {
 	// Turn on GPUs accounting only if the corresponding command line option is set to true.
 	if *gpuAcct {
 		prometheus.MustRegister(NewGPUsCollector())   // from gpus.go
+		prometheus.MustRegister(NewGPUCollector())    // from gpu.go
 	}
 
 	// The Handler function provides a default handler to expose metrics
 	// via an HTTP server. "/metrics" is the usual endpoint for that.
-	log.Infof("Starting Server: %s", *listenAddress)
-	log.Infof("GPUs Accounting: %t", *gpuAcct)
+	log.Printf("Starting Server: %s", *listenAddress)
+	log.Printf("GPUs Accounting: %t", *gpuAcct)
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }

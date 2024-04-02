@@ -16,26 +16,39 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 package main
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"testing"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestNodesMetrics(t *testing.T) {
+func TestParseGPUsMetrics(t *testing.T) {
 	// Read the input data from a file
-	file, err := os.Open("test_data/sinfo.txt")
+	path := "test_data/sinfo_gpus.txt"
+	file, err := os.Open(path)
 	if err != nil {
-		t.Fatalf("Can not open test data: %v", err)
+		t.Fatalf("Failed to open test file %s: %v", path, err)
 	}
-	data, err := ioutil.ReadAll(file)
-	t.Logf("%+v", ParseNodesMetrics(data))
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatalf("Failed to read the test file %s: %v", path, err)
+	}
+	metrics := ParseGPUsMetrics(string(data))
+	t.Logf("%+v", metrics)
+	assert.Equal(t, metrics.alloc, uint64(52))
+	assert.Equal(t, metrics.idle, uint64(61))
+	assert.Equal(t, metrics.total, uint64(113))
+	// Not sure what's the right way to check a float
+	assert.Greater(t, metrics.utilization, 51.0 / 113.0)
+	assert.Less(t, metrics.utilization, 53.0 / 113.0)
 }
 
-func TestNodesGetMetrics(t *testing.T) {
+func TestGPUsGetMetrics(t *testing.T) {
 	utility := "sinfo"
 	if ! UtilityAvailable(utility) {
 		t.Logf("%s is not available. Skipping...", utility)
 	} else {
-		t.Logf("%+v", NodesGetMetrics())
+		t.Logf("%+v", GPUsGetMetrics())
 	}
 }

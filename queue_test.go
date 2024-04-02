@@ -32,5 +32,10 @@ func TestParseQueueMetrics(t *testing.T) {
 }
 
 func TestQueueGetMetrics(t *testing.T) {
-	t.Logf("%+v", QueueGetMetrics())
+	utility := "squeue"
+	if ! UtilityAvailable(utility) {
+		t.Logf("%s is not available. Skipping...", utility)
+	} else {
+		t.Logf("%+v", QueueGetMetrics())
+	}
 }
