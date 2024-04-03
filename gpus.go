@@ -31,7 +31,7 @@ type GPUsMetrics struct {
 }
 
 func GPUsGetMetrics() *GPUsMetrics {
-	args := []string{"-a", "-h", "--Format='Nodes: ,Gres: ,GresUsed:'", "--state=idle,allocated"}
+	args := []string{"-a", "-h", "--Format=Nodes: ,Gres: ,GresUsed: ", "--state=idle,allocated"}
 	output := string(Execute("sinfo", args))
 	return ParseGPUsMetrics(output)
 }

@@ -31,7 +31,10 @@ type GPUMetrics struct {
 }
 
 func GPUGetMetrics() map[string]*GPUMetrics {
-	args := []string{"-a", "-h", "--Format='Nodes: ,Gres: ,GresUsed:'", "--state=idle,allocated"}
+	// space prefix ensures that the full value is displayed. Without it, the value is trancated
+	// to 20 chars.
+	// Suppress your natural instinct to add single quotes around Format
+	args := []string{"-a", "-h", "--Format=Nodes: ,Gres: ,GresUsed: ", "--state=idle,allocated"}
 	output := string(Execute("sinfo", args))
 	return ParseGPUMetrics(output)
 }
@@ -127,11 +130,11 @@ func (cc *GPUCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (cc *GPUCollector) Collect(ch chan<- prometheus.Metric) {
-	cm := GPUGetMetrics()
-	for gpu_type := range cm {
-		ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, float64(cm[gpu_type].alloc))
-		ch <- prometheus.MustNewConstMetric(cc.idle, prometheus.GaugeValue, float64(cm[gpu_type].idle))
-		ch <- prometheus.MustNewConstMetric(cc.total, prometheus.GaugeValue, float64(cm[gpu_type].total))
-		ch <- prometheus.MustNewConstMetric(cc.utilization, prometheus.GaugeValue, cm[gpu_type].utilization)
+	gpus := GPUGetMetrics()
+	for gpu := range gpus {
+		ch <- prometheus.MustNewConstMetric(cc.alloc, prometheus.GaugeValue, float64(gpus[gpu].alloc), gpu)
+		ch <- prometheus.MustNewConstMetric(cc.idle, prometheus.GaugeValue, float64(gpus[gpu].idle), gpu)
+		ch <- prometheus.MustNewConstMetric(cc.total, prometheus.GaugeValue, float64(gpus[gpu].total), gpu)
+		ch <- prometheus.MustNewConstMetric(cc.utilization, prometheus.GaugeValue, gpus[gpu].utilization, gpu)
 	}
 }

@@ -16,8 +16,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 package main
 
 import (
-	"log"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -82,11 +80,11 @@ func ParseNodeMetrics(input []byte) map[string]*NodeMetrics {
 // NodeData executes the sinfo command to get data for each node
 // It returns the output of the sinfo command
 func NodeData() []byte {
-	cmd := exec.Command("sinfo", "-h", "-N", "-O", "NodeList,AllocMem,Memory,CPUsState,StateLong")
-	out, err := cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Space prefix ensures that the full value is displayed. Without it, the value is trancated
+	// to 20 chars.
+	// Suppress your natural instinct to add single quotes around Format
+	args := []string{"-h", "-N", "--Format=NodeList: ,AllocMem: ,Memory: ,CPUsState: ,StateLong: "}
+	out := Execute("sinfo", args)
 	return out
 }
 
